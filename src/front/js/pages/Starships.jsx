@@ -1,58 +1,53 @@
-import React, { useContext, useEffect } from "react";
-import { Context } from "../store/appContext";
+import React, { useContext } from "react";
+import { Context } from "../store/appContext.js";
 import { useNavigate } from "react-router-dom";
+import { Spinner } from "../component/Spinner.jsx"
 
 export const Starships = () => {
     const { store, actions } = useContext(Context);
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        actions.getStarships();
-    }, [actions]);
+    actions.getStarships();
+    const navigate = useNavigate()
 
     const handleError = (event) => {
-        event.target.src = 'https://starwars-visualguide.com/assets/img/placeholder.jpg';
-        event.target.style.objectFit = 'cover';
-    };
+        event.target.src = 'https://starwars-visualguide.com/assets/img/placeholder.jpg'
+    }
 
     const viewMore = (uid) => {
         navigate(`/starships/${uid}`);
     };
-
     return (
         <div className="container mt-5 mb-5">
             <nav aria-label="Page navigation example">
-                <ul className="pagination justify-content-end">
-                    <li className="page-item">
-                        <a className="page-link text-dark bg-warning" href="#">Previous</a>
+                <ul class="pagination justify-content-end">
+                    <li class="page-item">
+                        <a class="page-link text-dark bg-warning" href="#">Previous</a>
                     </li>
-                    <li className="page-item">
-                        <a className="page-link text-dark bg-warning" href="#">1</a>
+                    <li class="page-item">
+                        <a class="page-link text-dark bg-warning" href="#">1</a>
                     </li>
-                    <li className="page-item">
-                        <a className="page-link text-dark bg-warning" href="#">2</a>
+                    <li class="page-item">
+                        <a class="page-link text-dark bg-warning" href="#">2</a>
                     </li>
-                    <li className="page-item">
-                        <a className="page-link text-dark bg-warning" href="#">3</a>
+                    <li class="page-item">
+                        <a class="page-link text-dark bg-warning" href="#">3</a>
                     </li>
-                    <li className="page-item">
-                        <a className="page-link text-dark bg-warning" href="#">Next</a>
+                    <li class="page-item">
+                        <a class="page-link text-dark bg-warning" href="#">Next</a>
                     </li>
                 </ul>
             </nav>
             <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-2">
-                {store.starships.length === 0 ? (
-                    <p>Cargando naves...</p>
-                ) : (
-                    store.starships.map((item,index) => (
+                {store.starships.length === 0 ? Spinner() :
+                    store.starships.map(item => (
                         <div key={item.uid} className="col">
                             <div className="card my-3 mx-2">
                                 <img
-                                    src={`https://starwars-visualguide.com/assets/img/starships/${index + 1}.jpg`}
-                                    className="card-img-top img-fluid"
+                                    src={`https://starwars-visualguide.com/assets/img/starships/${item.uid}.jpg`}
+                                    className="card-img-top"
                                     alt={item.name}
                                     onError={handleError}
                                     style={{ aspectRatio: "1/1", width: '100%' }}
+
                                 />
                                 <div className="card-body">
                                     <h5 className="card-title">{item.name}</h5>
@@ -67,8 +62,7 @@ export const Starships = () => {
                                 </div>
                             </div>
                         </div>
-                    ))
-                )}
+                    ))}
             </div>
         </div>
     );

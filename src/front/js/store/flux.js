@@ -1,167 +1,295 @@
 const getState = ({ getStore, getActions, setStore }) => {
     return {
         store: {
-            username: "diego",
+            // Contact-list API
+            host: 'https://playground.4geeks.com/contact',
             message: null,
+            user: 'diego',
             contacts: [],
             currentContacts: {},
-            hostContact: "https://playground.4geeks.com/contact",
+
+            // Star Wats API
+            hostStarWarsAPI: 'https://swapi.tech/api',
             characters: [],
+            currentPagePeople: 1,
             planets: [],
             starships: [],
-            favorites: [],
+            characterInformation: {},
             planetInformation: {},
             starshipsInformation: {},
-            characterInformation: {},
+            favorites: [],
+            isLoged: false,
+            alert: {
+                text: 'This is an Alert!',
+                background: 'danger',
+                visible: false
+            },
+
         },
         actions: {
             getMessage: async () => {
-                const response = await fetch(process.env.BACKEND_URL + "/api/hello");
+                const response = await fetch(process.env.BACKEND_URL + "/api/hello")
                 if (!response.ok) {
                     console.log("Error loading message from backend", response.status, response.statusText);
                     return;
                 }
-                const data = await response.json();
-                setStore({ message: data.message });
+                const data = await response.json()
+                setStore({ message: data.message })
+                // don't forget to return something, that is how the async resolves
                 return data;
             },
-
-            getAgenda: async () => {
-                const response = await fetch(`${getStore().hostContact}/agendas/${getStore().username}`, {
-                    method: 'GET'
-                });
-                if (!response.ok) {
-                    getActions().createAgenda();
-                }
-                const data = await response.json();
-                setStore({ contacts: data.contacts });
-            },
-
-            createAgenda: async () => {
-                const response = await fetch(`${getStore().hostContact}/agendas/${getStore().username}`, {
-                    method: 'POST'
-                });
-                getActions().getAgenda();
-            },
-
-            // ADD CONTACT
-            addContact: async (dataToSend) => {
-                const response = await fetch(`${getStore().hostContact}/agendas/${getStore().username}/contacts/`, {
+            login: async (dataToSend) => {
+                const uri = `${process.env.BACKEND_URL}/api/login`;
+                const options = {
                     method: 'POST',
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify(dataToSend)
-                });
-                if (response.ok) {
-                    getActions().getAgenda();
+                };
+                const response = await fetch(uri, options)
+                if (!response.ok) {
+                    console.log('Error', response.status, response.statusText)
+                };
+                const data = await response.json();
+                console.log(data)
+                localStorage.setItem('token', data.token);
+                console.log('Error en la conexión', error);
+            },
+            setCurrentContacts: (contacts) => { setStore({ currentContacts: contacts }) },
+            createUser: async () => {
+                const uri = `${getStore().host}/agendas/${getStore().user}`;
+                const options = {
+                    method: 'POST'
+                }
+                const response = await fetch(uri, options)
+                if (!response.ok) {
+                    return
                 }
             },
-
-            // EDIT CONTACT
+            getContacts: async () => {
+                const uri = `${getStore().host}/agendas/${getStore().user}`;
+                const options = {
+                    method: 'GET'
+                };
+                try {
+                    const response = await fetch(uri, options);
+                    if (!response.ok) {
+                        console.log("Agenda no encontrada. Intentando crear una nueva agenda...");
+                        const userCreated = await getActions().createUser();
+                        if (userCreated) {
+                            return getActions().getContacts();
+                        } else {
+                            console.error("Error al crear la agenda. No se pueden obtener contactos.");
+                            return;
+                        }
+                    }
+                    const data = await response.json();
+                    setStore({ contacts: data.contacts });
+                    console.log("Contactos obtenidos correctamente:", data.contacts);
+                } catch (error) {
+                    console.error("Error al obtener contactos:", error);
+                }
+            },
             editContact: async (id, dataToSend) => {
-                const uri = `${getStore().hostContact}/agendas/${getStore().username}/contacts/${id}`;
+                const uri = `${getStore().host}/agendas/${getStore().user}/contacts/${id}`
                 const options = {
                     method: 'PUT',
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify(dataToSend)
+                }
+                const response = await fetch(uri, options)
+                if (!response.ok) {
+                    return
+                }
+                getActions().getContacts();
+            },
+            addContact: async (dataToSend) => {
+                const uri = `${getStore().host}/agendas/${getStore().user}/contacts`;
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(dataToSend)
                 };
                 const response = await fetch(uri, options);
-                if (response.ok) {
-                    getActions().getAgenda();
+                if (!response.ok) {
+                    return;
                 }
+                getActions().getContacts()
             },
-
-            // DELETE CONTACT
             deleteContact: async (designateNumber) => {
-                const uri = `${getStore().hostContact}/agendas/${getStore().username}/contacts/${designateNumber}`;
+                const uri = `${getStore().host}/agendas/${getStore().user}/contacts/${designateNumber}`;
                 const options = {
                     method: 'DELETE'
                 };
-                console.log(":", uri);
                 const response = await fetch(uri, options);
-                if (response.ok) {
-                    getActions().getAgenda();
+                if (!response.ok) {
+                    return;
                 }
+                getActions().getContacts();
             },
+            // Star Wars
 
-            // GET CHARACTERS
             getCharacters: async () => {
-                const response = await fetch("https://swapi.dev/api/people");
-                if (response.ok) {
-                    const data = await response.json();
-                    setStore({ characters: data.results });
+                if (localStorage.getItem('characters')) {
+                    setStore({ characters: JSON.parse(localStorage.getItem('characters')) })
+                    return
                 }
+                const response = await fetch(`${getStore().hostStarWarsAPI}/people?page=${getStore().currentPagePeople}&limit=10`)
+                console.log(response);
+                if (!response.ok) {
+                    console.log('Error: ', response.status, response.statusText)
+                    return
+                }
+                const data = await response.json()
+                setStore({ characters: data.results })
+                localStorage.setItem('characters', JSON.stringify(data.results))
             },
 
-            // GET PLANETS
             getPlanets: async () => {
-                const response = await fetch("https://swapi.dev/api/planets");
-                if (response.ok) {
-                    const data = await response.json();
-                    setStore({ planets: data.results });
+                if (localStorage.getItem('planets')) {
+                    setStore({ planets: JSON.parse(localStorage.getItem('planets')) })
+                    return
                 }
+                const response = await fetch(`${getStore().hostStarWarsAPI}/planets`)
+                console.log(response);
+                if (!response.ok) {
+                    console.log('Error: ', response.status, response.statusText)
+                    return
+                }
+                const data = await response.json()
+                setStore({ planets: data.results })
+                localStorage.setItem('planets', JSON.stringify(data.results))
             },
 
-            // GET STARSHIPS
             getStarships: async () => {
-                const response = await fetch("https://swapi.dev/api/starships");
-                if (response.ok) {
-                    const data = await response.json();
-                    setStore({ starships: data.results });
+                if (localStorage.getItem('starships')) {
+                    setStore({ starships: JSON.parse(localStorage.getItem('starships')) })
+                    return
                 }
-            },
-
-            // GET PLANET INFORMATION
-            getPlanetInformation: async (uid) => {
-                const response = await fetch(`https://swapi.dev/api/planets/${uid}/`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setStore({ planetInformation: data });
+                const response = await fetch(`${getStore().hostStarWarsAPI}/starships`)
+                console.log(response);
+                if (!response.ok) {
+                    console.log('Error: ', response.status, response.statusText)
+                    return
                 }
+                const data = await response.json()
+                setStore({ starships: data.results })
+                localStorage.setItem('starships', JSON.stringify(data.results))
             },
-
-            // CLEAR PLANET INFORMATION
-            clearPlanetInformation: () => {
-                setStore({ planetInformation: {} });
-            },
-
-            // GET STARSHIP INFORMATION
-            getStarshipsInformation: async (uid) => {
-                const response = await fetch(`https://swapi.dev/api/starships/${uid}/`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setStore({ starshipsInformation: data });
-                }
-            },
-
-            // CLEAR STARSHIP INFORMATION
-            clearStarshipsInformation: () => {
-                setStore({ starshipsInformation: {} });
-            },
-
-            // GET CHARACTER INFORMATION
             getCharacterInformation: async (uid) => {
-                const response = await fetch(`https://swapi.dev/api/people/${uid}/`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setStore({ characterInformation: data }); 
+                const response = await fetch(`${getStore().hostStarWarsAPI}/people/${uid}`)
+                if (!response.ok) { return }
+                const data = await response.json();
+                setStore({ characterInformation: data.result.properties })
+            },
+            getPlanetInformation: async (uid) => {
+                const response = await fetch(`${getStore().hostStarWarsAPI}/planets/${uid}`)
+                if (!response.ok) { return }
+                const data = await response.json();
+                setStore({ planetInformation: data.result.properties })
+            },
+            getStarshipsInformation: async (uid) => {
+                const response = await fetch(`${getStore().hostStarWarsAPI}/starships/${uid}`)
+                if (!response.ok) { return }
+                const data = await response.json();
+                setStore({ starshipsInformation: data.result.properties })
+            },
+            clearCharacterInformation: () => {
+                setStore({ characterInformation: {} })
+            },
+            clearPlanetInformation: () => {
+                setStore({ planetInformation: {} })
+            },
+            clearStarshipsInformation: () => {
+                setStore({ starshipsInformation: {} })
+            },
+            addToFavorites: (uid) => {
+                if (//!getStore().favorites.includes(uid))// 
+                    !getStore().favorites.find((favItem) => favItem === uid)) {
+                    setStore({ favorites: [...getStore().favorites, uid] })
+                }
+                else {
+                    alert(`El item ${uid} ya está en favoritos`);
                 }
             },
-
-            // CLEAR CHARACTER INFORMATION
-            clearCharacterInformation: () => {
-                setStore({ characterInformation: {} }); 
+            removeFromFavorites: (uid) => {
+                setStore({ favorites: getStore().favorites.filter((favItem) => favItem !== uid) })
             },
-
-            // ADD TO FAVORITES
-            addToFavorites: (item) => {
-                setStore({ favorites: [...getStore().favorites, item] });
-            }
+            login: async (dataToSend) => {
+                const uri = `${process.env.BACKEND_URL}/api/login`;
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": 'application/json'
+                    },
+                    body: JSON.stringify(dataToSend)
+                }
+                const response = await fetch(uri, options);
+                if (!response.ok) {
+                    console.log('Error', response.status, response.statusText);
+                    return;
+                }
+                const data = await response.json()
+                console.log(data)
+                localStorage.setItem('token', data.access_token)
+                localStorage.setItem('user', JSON.stringify(data.results))
+                setStore({ isLoged: true, user: data.results.email })
+            },
+            logout: () => {
+                setStore({ isLoged: false, user: '' });
+                localStorage.removeItem('token')
+                localStorage.removeItem('user')
+            },
+            isLogged: () => {
+                const token = localStorage.getItem('token')
+                if (token) {
+                    const userData = JSON.parse(localStorage.getItem('user'));
+                    console.log(userData)
+                    setStore({ isLoged: true, user: userData.email })
+                }
+            },
+            accessProtected: async () => {
+                const token = localStorage.getItem('token')
+                const uri = `${process.env.BACKEND_URL}/api/protected`;
+                const options = {
+                    method: 'GET',
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    }
+                };
+                const response = await fetch(uri, options);
+                if (!response.ok) {
+                    console.log('error', response.status, response.statusText);
+                    return
+                }
+                const data = await response.json();
+                console.log(data);
+            },
+            newSignUp: async (dataToSend) => {
+                const uri = `${process.env.BACKEND_URL}/api/sign-up`;
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dataToSend)
+                };
+                    const response = await fetch(uri, options);
+                    if (!response.ok) {
+                        console.log("Error:", response.status);
+                        return;
+                    }
+                    const data = await response.json();
+                    console.log(data);
+                    setStore({ isLoged: true });
+            },
         }
     };
 };
-
 export default getState;
